@@ -60,7 +60,7 @@ public class DataProcessor implements Runnable {
                 }
 
                 Platform.runLater(() -> progress.setProgress(progress.getProgress() + progressPerFile));
-                Thread.sleep(500);
+                Thread.sleep(1000);
 
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
