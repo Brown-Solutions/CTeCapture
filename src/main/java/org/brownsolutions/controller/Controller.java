@@ -14,6 +14,7 @@ import org.brownsolutions.utils.AlertPane;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 
 public class Controller {
@@ -42,30 +43,37 @@ public class Controller {
     public void onSelect(ActionEvent actionEvent) {
         try {
             File file = showFileDialog(actionEvent);
-            if (file != null) {
-                InputStream inputStream = Main.class.getClassLoader().getResourceAsStream("cer_matriz.pfx");
+            if (file == null) return;
 
-                if (inputStream == null) {
-                    AlertPane.showAlert("Erro!", "Certificado não encontrado.");
-                    return;
-                }
+            InputStream pfxStream = Main.class.getClassLoader().getResourceAsStream("cer_matriz.pfx");
+            InputStream crtStream = Main.class.getClassLoader().getResourceAsStream("svrs.crt");
 
-                File tempFile = File.createTempFile("certificado", ".pfx");
-                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                    byte[] buffer = new byte[1024];
-                    int length;
-                    while ((length = inputStream.read(buffer)) != -1) {
-                        fos.write(buffer, 0, length);
-                    }
-                }
-
-                dataProcessor = new DataProcessor(file.getAbsolutePath(), tempFile.getAbsolutePath(), executeButton, selectButton, progress);
-                executeButton.setDisable(false);
+            if (pfxStream == null || crtStream == null) {
+                AlertPane.showAlert("Erro!", "Certificado(s) não encontrado(s).");
+                return;
             }
+
+            File tempPfxFile = createTempFile(pfxStream, "certified_usaflex", ".pfx");
+            File tempCrtFile = createTempFile(crtStream, "certified_svrs", ".crt");
+
+            dataProcessor = new DataProcessor(file.getAbsolutePath(), tempCrtFile.getAbsolutePath(), tempPfxFile.getAbsolutePath(), executeButton, selectButton, progress);
+            executeButton.setDisable(false);
 
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private File createTempFile(InputStream inputStream, String prefix, String suffix) throws IOException {
+        File tempFile = File.createTempFile(prefix, suffix);
+        try (inputStream; FileOutputStream fos = new FileOutputStream(tempFile)) {
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                fos.write(buffer, 0, length);
+            }
+        }
+        return tempFile;
     }
 
     private File showFileDialog(Event event) {

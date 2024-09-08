@@ -13,16 +13,19 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Objects;
 
 public class CTeStatusService {
 
+    private final String certifiedServerPath;
     private final String certifiedPath;
     private final String password;
     private final String cTeKey;
 
-    public CTeStatusService(String certifiedPath, String password, String cTeKey) {
+    public CTeStatusService(String certifiedServerPath, String certifiedPath, String password, String cTeKey) {
+        this.certifiedServerPath = certifiedServerPath;
         this.certifiedPath = certifiedPath;
         this.password = password;
         this.cTeKey = cTeKey;
@@ -33,16 +36,15 @@ public class CTeStatusService {
             KeyStore keyStore = generateKeyStore();
             KeyManagerFactory kmf = generateKeyManagerFactory(keyStore);
 
-            TrustManager[] trustAllCerts = getTrustManager();
-
-            String soapRequest = getSoapRequest();
+            TrustManagerFactory tmf = getTrustManagerFactoryWithCert();
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(kmf.getKeyManagers(), trustAllCerts, new java.security.SecureRandom());
+            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new java.security.SecureRandom());
 
             HttpsURLConnection connection = getConnection(sslContext);
             if (connection == null) return null;
 
+            String soapRequest = getSoapRequest();
             try (OutputStream os = connection.getOutputStream()) {
                 byte[] input = soapRequest.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
@@ -59,7 +61,6 @@ public class CTeStatusService {
                     }
 
                     return parseXMLResponse(content.toString());
-
                 }
             }
 
@@ -72,7 +73,6 @@ public class CTeStatusService {
 
     private KeyStore generateKeyStore() {
         KeyStore keyStore;
-
         try {
             keyStore = KeyStore.getInstance("PKCS12");
 
@@ -87,13 +87,11 @@ public class CTeStatusService {
         }
     }
 
-    private KeyManagerFactory generateKeyManagerFactory(KeyStore trustStore) {
+    private KeyManagerFactory generateKeyManagerFactory(KeyStore keyStore) {
         KeyManagerFactory kmf;
-
         try {
             kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            kmf.init(trustStore, password.toCharArray());
-
+            kmf.init(keyStore, password.toCharArray());
             return kmf;
 
         } catch (Exception e) {
@@ -101,16 +99,25 @@ public class CTeStatusService {
         }
     }
 
-    private TrustManager[] getTrustManager() {
-        return new TrustManager[] {
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                }
-        };
+    private TrustManagerFactory getTrustManagerFactoryWithCert() {
+        try {
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            trustStore.load(null, null);
+
+            try (FileInputStream certInputStream = new FileInputStream(certifiedServerPath)) {
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                X509Certificate cert = (X509Certificate) cf.generateCertificate(certInputStream);
+                trustStore.setCertificateEntry("cte-service", cert);
+            }
+
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(trustStore);
+
+            return tmf;
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private String getSoapRequest() {
@@ -123,7 +130,7 @@ public class CTeStatusService {
                 + "<consSitCTe xmlns=\"http://www.portalfiscal.inf.br/cte\" versao=\"4.00\">"
                 + "<tpAmb>1</tpAmb>"
                 + "<xServ>CONSULTAR</xServ>"
-                + "<chCTe>"+cTeKey+"</chCTe>"
+                + "<chCTe>" + cTeKey + "</chCTe>"
                 + "</consSitCTe>"
                 + "</cteDadosMsg>"
                 + "</soap12:Body>"

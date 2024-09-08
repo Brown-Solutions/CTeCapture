@@ -26,15 +26,17 @@ public class DataProcessor implements Runnable {
     private final javafx.scene.control.Button selectButton;
     private final ProgressBar progress;
 
+    private final String certifiedServerPath;
     private final String certifiedPath;
-    private String password;
     private final String filePath;
+    private String password;
 
     private Workbook workbook;
 
 
-    public DataProcessor(String filePath, String certifiedPath, javafx.scene.control.Button executeButton, javafx.scene.control.Button selectButton, ProgressBar progress) {
+    public DataProcessor(String filePath, String certifiedServerPath, String certifiedPath, javafx.scene.control.Button executeButton, javafx.scene.control.Button selectButton, ProgressBar progress) {
         this.filePath = filePath;
+        this.certifiedServerPath = certifiedServerPath;
         this.certifiedPath = certifiedPath;
         this.executeButton = executeButton;
         this.selectButton = selectButton;
@@ -52,7 +54,7 @@ public class DataProcessor implements Runnable {
 
         for (CTeDTO cTe : cTes) {
             try {
-                CTeStatusService status = new CTeStatusService(certifiedPath, password, cTe.key());
+                CTeStatusService status = new CTeStatusService(certifiedServerPath, certifiedPath, password, cTe.key());
                 CTeResponseDTO response = status.consultEndpoint();
 
                 if (response != null) {
