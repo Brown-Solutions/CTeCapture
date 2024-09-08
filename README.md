@@ -24,3 +24,6 @@
 - O certificado é validado a cada requisição enviada.
 - As consultas podem ser realizadas em lote, de acordo com o padrão especificado na planilha informada abaixo.
 - Atualmente, o certificado deve ser carregado diretamente no projeto, na pasta resources. Coloque o certificado nessa pasta e ajuste o código conforme necessário.
+
+![image](https://github.com/user-attachments/assets/1cd4a49a-fb3d-43b3-9cec-012db7e1c38b)
+
